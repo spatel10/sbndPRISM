@@ -13,11 +13,14 @@
 
 using namespace std;
 
-vector<TH1D*> h;
+//TMinuit requires the fit objects to be global
+vector<TH1D*> h; 
 TH1D *h_gaus;
 unsigned step = 1;
 
 //*********************************************************************************************
+//creates a function to then feed to fcn to fit (TMinuit - ROOT)
+//the number of histograms in the linear combination depends on the oaa interval and hence needs to be changed manually here if the total number of OAA cuts changes
 TH1D* myfunc(vector<TH1D*> h, Double_t *par) {
   TH1D *sbnd = new TH1D("sbnd", "", 80, 0.0, 4.0); //create a histogram of linear combination of sbnd off-axis flux histograms with par as coefficients
   *sbnd = ( par[0]*(*h[0]) + par[1]*(*h[1]) + par[2]*(*h[2]) + par[3]*(*h[3]) + par[4]*(*h[4]) + par[5]*(*h[5]) + par[6]*(*h[6]) + par[7]*(*h[7]) + par[8]*(*h[8]) + par[9]*(*h[9]) + par[10]*(*h[10]) + par[11]*(*h[11]) + par[12]*(*h[12]) + par[13]*(*h[13]) + par[14]*(*h[14]) + par[15]*(*h[15]) + par[16]*(*h[16]) + par[17]*(*h[17]) );
@@ -26,9 +29,9 @@ TH1D* myfunc(vector<TH1D*> h, Double_t *par) {
 }
 
 //************************************************************************************************
+//Feed in fake-gaussian and the OAA bin histograms to fit 
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag) {
-
-  //defining chi-square to minimize (standard chi-square definition summed over each bin 
+  //defining chi-square to minimize (standard chi-square definition summed over each bin) 
   double chisq=0;
   for(Int_t i=1; i<=(h_gaus->GetNbinsX()); i++) 
   {
@@ -45,14 +48,15 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag) {
 //*************************************************************************************************
 //declarations
 TH1D* monoHist(double mean, double sigma); //function for making a "fake" gaussian histogram to fit
-void intervalHists(vector<TH1D*> hist, vector<string> offaxis); //function for getting a canvas with all the off-axis flux histograms
+void intervalHists(vector<TH1D*> hist, vector<string> offaxis); //function for displaying all the off-axis flux histograms in the same canvas
 void recoFit(double mean, double sigma, TH1D* reco_fit, TH1D* qe_fit, TH1D* nonqe_fit); //function to plot and compare the fit to the fake gaussian
-void fitCheck(TH1D* h_gaus, TH1D* h_fit, double mean, double sigma); //function plot reco, qe, and nonqe fit histogram
+void fitCheck(TH1D* h_gaus, TH1D* h_fit, double mean, double sigma); //function plot reco, qe, and nonqe fit histogram (result of the fit applied to reco)
 
 //************************************************************************************************
 //************************************************************************************************
 void ana_prism() { 
 
+  //input the parameters of the desired gaussian
   double mean = 0.9; 
   double sigma = 0.2; 
 
@@ -63,14 +67,13 @@ void ana_prism() {
   vector<TH1D*> h_qe; //-------------||-------------
 
   TCanvas *c = new TCanvas();
-  TFile *f = new TFile("output_sbndPRISM.root");
+  TFile *f = new TFile("output_sbndPRISM.root"); //created using sbnana
   TTree *sbnana = (TTree*)f->Get("sbnana");
-
 
   vector<double> nu_ene, oaa, nu_x, nu_y, nu_z, nu_reco_ene;
   vector<int> nu_type, nu_mode, ccnc;
 
-//get branches and REDEFINE locally
+//GET BRANCHES AND REDEFINE LOCALLY
   sbnana->SetBranchAddress("nu_type", &nu_type); //true - neutrino species
   sbnana->SetBranchAddress("nu_mode", &nu_mode); //true - interaction mode
   sbnana->SetBranchAddress("nu_x", &nu_x); //int vertex x
@@ -79,14 +82,14 @@ void ana_prism() {
   sbnana->SetBranchAddress("nu_ene", &nu_ene); //true neutrino energy
   sbnana->SetBranchAddress("nu_reco_ene", &nu_reco_ene); //reco neutrino energy
   sbnana->SetBranchAddress("oaa", &oaa); //off-axis-angle measured from the center of neutrino beam at sbnd
-  sbnana->SetBranchAddress("ccnc", &ccnc);
+  sbnana->SetBranchAddress("ccnc", &ccnc); //true CC or NC information
 
 //DEFINE CUTS
   TCut nu_mu("nu_type == 14"); //ONLY MUON-NEUTRINOS
-  TCut cc("ccnc == 0");
+  TCut cc("ccnc == 0"); //ONLY CC INTERACTIONS
   TCut int_qe("nu_mode == 0"); //SPECIFICALLY QE INTERACTIONS
   TCut int_nonqe("(nu_mode != 0)&&(nu_mode != -1)"); //ALL INTERACTIONS THAT ARE NOT-QE AND NOT-UNKNOWN
-  TCut nomec("nu_mode != 10");
+  TCut nomec("nu_mode != 10"); //IN CASE ONE WANTS TO PLAY WITH THE FIT (REMOVING MEC SAMPLE)
  
   //sbnd ACTIVE VOLUME CUT -- MODIFY AS PER FIDUCAIL VOLUME DEFINITION
   TCut x_active("(nu_x >= -200)&&(nu_x <= 200)"); 
@@ -99,13 +102,11 @@ void ana_prism() {
   cut.push_back("(oaa >= 0.0)&&(oaa < 0.2)");
   offaxis.push_back("0.0 - 0.2");
 
-
   for(Int_t i=0; i<16; i++) 
   {
     cut.push_back(Form("(oaa >= %.2f)&&(oaa < %.2f)", (i+2)*0.1, (i+3)*0.1));
     offaxis.push_back(Form("%.1f - %.1f", (i+2)*0.1, (i+3)*0.1));
   }
-
 
   cut.push_back("(oaa >= 1.80)&&(oaa <= 2.00)");
   offaxis.push_back("1.8 - 2.0");
@@ -139,7 +140,7 @@ cout << "----------------------------------------------------------------" << en
 //FUNCTION CALL TO CREATE "FAKE" GAUSSIAN HISTOGRAM WITH THE GIVEN VALUES OF MEAN AND SIGMA
   h_gaus = monoHist(mean, sigma); 
 
-//Function to get all off-axis histograms in one canvas
+//FUNCTION TO DISPLAY ALL HISTOGRAMS IN THE SAME CANVAS
 //  intervalHists(h, offaxis);
 
 //MAIN TMINUIT SCRIPT (TO CARRY OUT THE FIT)
@@ -148,11 +149,11 @@ cout << "----------------------------------------------------------------" << en
 
   arglist[0] = 1;
 
-  TMinuit *gMinuit = new TMinuit(para); //definition
-  gMinuit->SetFCN(fcn); //set the function to minimize
+  TMinuit *gMinuit = new TMinuit(para); //DEFINITION
+  gMinuit->SetFCN(fcn); //SET THE FUNCTION TO MINIMIZE (USER DEFINED AS IN FCN ABOVE)
   gMinuit->mnexcm("SET ERR", arglist ,1,ierflg);
 
-//set starting values and step intevals for the fit for each parameter
+//SET THE STARTING VALUES AND INTERVAL STEPS FOR EACH PARAMTER OF THE FIT
   static double start = 0.0;
   static double step = 0.05;
 
@@ -161,11 +162,11 @@ cout << "----------------------------------------------------------------" << en
     gMinuit->mnparm(i, Form("a%d",i), start, step, 0, 0, ierflg);
   } 
 
-  arglist[0] = 500; //number of maximum steps  
+  arglist[0] = 500; //MAX NUMBER OF STEPS  
   arglist[1] = 1.;
-  gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg); //algorithm used for doing the fit
+  gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg); //ALGORITHM USED FOR THE FIR (REFER TO TMINUIT FOR OTHER OPTIONS)
 
-//printing fit results
+//PRINTING OUT THE FIR RESULTS
   Double_t amin,edm,errdef;
   Int_t nvpar,nparx,icstat;
   gMinuit->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
@@ -174,7 +175,7 @@ cout << "----------------------------------------------------------------" << en
   if(gMinuit->GetStatus() == 0) cout << "******************** FIT CONVERGED ****************" << endl;
   else cout << "******************* FIT DID NOT; I REPEAT; DID NOT CONVERGE ****************" << endl;
 
-  gMinuit->mnimpr(); //try to improve the local minimum
+  gMinuit->mnimpr(); //TRY TO IMPROVE THE MINIMUM (WILL USUALLY GET BACK TO THE INITIAL MINIMUM AND HENCE COMMENT OUT IF IT TAKES TOO LONG)
 cout << "----------------------------------------------------------------" << endl;
 
 //TMINUIT IS COMPLETE, GETTING FIT RESULTS AND USING THEM TO MAKE RESULT HISTOGRAMS 
@@ -192,15 +193,14 @@ cout << "----------------------------------------------------------------" << en
 
 cout << "\n----------------------------------------------------------------" << endl;
   cout << "Number of Parameters = " << para << "\n" << endl;
-
-//  TCanvas *c1 = new TCanvas();
+  
 //DEFINING HISTOGRAMS TO DRAW THE FIT RESULTS
   TH1D *h_fit = new TH1D("h_fit", "", 80, 0.0, 4.0); //TRUE ENERGY
   TH1D *reco_fit = new TH1D("reco_fit", "", 80, 0.0, 4.0); //RECO ENERGY
   TH1D *nonqe_fit = new TH1D("nonqe_fit", "", 80, 0.0, 4.0); //NON-QE (MEC) RECO INTERACTIONS
   TH1D *qe_fit = new TH1D("qe_fit", "", 80, 0.0, 4.0); //QE RECO INTERACTIONS
 
-//linear combination of each of the 4 histogram vectors with the coefficients as the fit parameters
+//SCALING AND SUMMING EACH OF THE HSITOGRAMS USING THE FIT PARAMETERS AS COEFFICIENTS
   for(Int_t i=0; i<para; i++) 
   {
     *h_fit = *h_fit + coeff[i]*(*h[i]); //TRUE ENERGY
