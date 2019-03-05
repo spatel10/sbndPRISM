@@ -24,7 +24,6 @@ unsigned step = 1;
 TH1D* myfunc(vector<TH1D*> h, Double_t *par) {
   TH1D *sbnd = new TH1D("sbnd", "", 80, 0.0, 4.0); //create a histogram of linear combination of sbnd off-axis flux histograms with par as coefficients
   *sbnd = ( par[0]*(*h[0]) + par[1]*(*h[1]) + par[2]*(*h[2]) + par[3]*(*h[3]) + par[4]*(*h[4]) + par[5]*(*h[5]) + par[6]*(*h[6]) + par[7]*(*h[7]) + par[8]*(*h[8]) + par[9]*(*h[9]) + par[10]*(*h[10]) + par[11]*(*h[11]) + par[12]*(*h[12]) + par[13]*(*h[13]) + par[14]*(*h[14]) + par[15]*(*h[15]) + par[16]*(*h[16]) + par[17]*(*h[17]) );
-
   return sbnd;
 }
 
