@@ -1,3 +1,9 @@
+//******************************************************************
+//ana_prism.C: a C++/ROOT macro for sbndPRISM analysis using simulated sample from SBND using sbncode
+//uses the output of the sbnanalysis module sbnPRISM
+//Swapnil Patel - swapnilpatel@uchicago.edu
+//******************************************************************
+
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
@@ -13,24 +19,24 @@
 
 using namespace std;
 
-//TMinuit requires the fit objects to be global
-vector<TH1D*> h; 
+//TMinuit REQUIRES THE FIR OBJECTS TO BE GLOBAL
+vector<TH1D*> h; //DIVIDING TRUE NUMU-CC HISTOGRAM IN EACH OAA BIN
 TH1D *h_gaus;
 unsigned step = 1;
 
 //*********************************************************************************************
-//creates a function to then feed to fcn to fit (TMinuit - ROOT)
-//the number of histograms in the linear combination depends on the oaa interval and hence needs to be changed manually here if the total number of OAA cuts changes
+//USER CREATED FUNCTION TO FEED TO TMINUIT FIT FUNCTION (FCN)
+//THE NUMBER OF TERMS IN THE LINEAR COMBINATION BELOW DEPENDS ON OAA INTERVALS AND NEEDS TO BE CHANGED MANUALLY IF THE TOTAL NUMBER OF OAA BINS CHANGE
 TH1D* myfunc(vector<TH1D*> h, Double_t *par) {
-  TH1D *sbnd = new TH1D("sbnd", "", 80, 0.0, 4.0); //create a histogram of linear combination of sbnd off-axis flux histograms with par as coefficients
+  TH1D *sbnd = new TH1D("sbnd", "", 80, 0.0, 4.0); //CREATE A HISTOGRAM WITH PARAMETERS AS SCALINGS FOR EACH OAA ENERGY SPECTRUM
   *sbnd = ( par[0]*(*h[0]) + par[1]*(*h[1]) + par[2]*(*h[2]) + par[3]*(*h[3]) + par[4]*(*h[4]) + par[5]*(*h[5]) + par[6]*(*h[6]) + par[7]*(*h[7]) + par[8]*(*h[8]) + par[9]*(*h[9]) + par[10]*(*h[10]) + par[11]*(*h[11]) + par[12]*(*h[12]) + par[13]*(*h[13]) + par[14]*(*h[14]) + par[15]*(*h[15]) + par[16]*(*h[16]) + par[17]*(*h[17]) );
   return sbnd;
 }
 
 //************************************************************************************************
-//Feed in fake-gaussian and the OAA bin histograms to fit 
+//FEED IN USER CREATED "FAKE"-GAUSSIAN SPECTRUM AND MINIMIZE THE CHI-SQAURE BETWEEN IT AND THE LINEAR COMBINATION ABOVE 
 void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag) {
-  //defining chi-square to minimize (standard chi-square definition summed over each bin) 
+  //DEFINING STANDARD CHI-SQAURE TO MINIMIZE 
   double chisq=0;
   for(Int_t i=1; i<=(h_gaus->GetNbinsX()); i++) 
   {
@@ -45,43 +51,43 @@ void fcn(Int_t &npar, Double_t *gin, Double_t &f, Double_t *par, Int_t iflag) {
 }
 
 //*************************************************************************************************
-//declarations
-TH1D* monoHist(double mean, double sigma); //function for making a "fake" gaussian histogram to fit
-void intervalHists(vector<TH1D*> hist, vector<string> offaxis); //function for displaying all the off-axis flux histograms in the same canvas
-void recoFit(double mean, double sigma, TH1D* reco_fit, TH1D* qe_fit, TH1D* nonqe_fit); //function to plot and compare the fit to the fake gaussian
-void fitCheck(TH1D* h_gaus, TH1D* h_fit, double mean, double sigma); //function plot reco, qe, and nonqe fit histogram (result of the fit applied to reco)
+//FUNCTION DECLARATIONS
+TH1D* monoHist(double mean, double sigma); //FUNCTION TO MAKE GAUSSIAN HISTOGRAM FOR USER INPUT MEAN AND SIGMA
+void intervalHists(vector<TH1D*> hist, vector<string> offaxis); //FUNCTION TO DISPLAY ALL RESULTING OFF-AXIS HISTOGRAM IN ONE CANVAS
+void recoFit(double mean, double sigma, TH1D* reco_fit, TH1D* qe_fit, TH1D* nonqe_fit); //FUNCTION TO PLOT AND COMARE THE FIT TO THE USER MADE GAUSSIAN
+void fitCheck(TH1D* h_gaus, TH1D* h_fit, double mean, double sigma); //FUNCTION TO PLOT RECO, QE AND NON-QE HISTOGRAMS (PARAMETERS FROM THE FIT APPLIED TO RECO)
 
 //************************************************************************************************
 //************************************************************************************************
 void ana_prism() { 
 
-  //input the parameters of the desired gaussian
+  //PARAMETERS FOR THE DESIRED GAUSSIAN
   double mean = 0.9; 
   double sigma = 0.2; 
 
-  vector<TCut> cut; //defining cuts to for each off-axis interval
-  vector<string> offaxis; //string of cut intervals
-  vector<TH1D*> reco; //dividing reco histograms according to oaa
+  vector<TCut> cut; //DEFINE CUT FOR EACH OFF-AXIS BIN
+  vector<string> offaxis; //STRING FOR THE CUT (NOT PERTINENT TO THE CODE)
+  vector<TH1D*> reco; //DIVIDING RECO HISTOGRAMS IN EACH OAA BIN
   vector<TH1D*> h_nonqe; //------------||---------------
   vector<TH1D*> h_qe; //-------------||-------------
 
   TCanvas *c = new TCanvas();
-  TFile *f = new TFile("output_sbndPRISM.root"); //created using sbnana
+  TFile *f = new TFile("output_sbndPRISM.root"); //CREATED USING sbnana (sbncode) (REFER TO sbnPRISMSelection.(cxx/hh))
   TTree *sbnana = (TTree*)f->Get("sbnana");
 
   vector<double> nu_ene, oaa, nu_x, nu_y, nu_z, nu_reco_ene;
   vector<int> nu_type, nu_mode, ccnc;
 
 //GET BRANCHES AND REDEFINE LOCALLY
-  sbnana->SetBranchAddress("nu_type", &nu_type); //true - neutrino species
-  sbnana->SetBranchAddress("nu_mode", &nu_mode); //true - interaction mode
-  sbnana->SetBranchAddress("nu_x", &nu_x); //int vertex x
-  sbnana->SetBranchAddress("nu_y", &nu_y); //int vetex y
-  sbnana->SetBranchAddress("nu_z", &nu_z); //int vertex z
-  sbnana->SetBranchAddress("nu_ene", &nu_ene); //true neutrino energy
-  sbnana->SetBranchAddress("nu_reco_ene", &nu_reco_ene); //reco neutrino energy
-  sbnana->SetBranchAddress("oaa", &oaa); //off-axis-angle measured from the center of neutrino beam at sbnd
-  sbnana->SetBranchAddress("ccnc", &ccnc); //true CC or NC information
+  sbnana->SetBranchAddress("nu_type", &nu_type); //TRUTH- NU TYPE
+  sbnana->SetBranchAddress("nu_mode", &nu_mode); //TRUTH- NU MODE
+  sbnana->SetBranchAddress("nu_x", &nu_x); //INTERACTION VERTEX X
+  sbnana->SetBranchAddress("nu_y", &nu_y); //------||-------  Y
+  sbnana->SetBranchAddress("nu_z", &nu_z); //------||-------  Z
+  sbnana->SetBranchAddress("nu_ene", &nu_ene); //TRUTH- NU ENERGY
+  sbnana->SetBranchAddress("nu_reco_ene", &nu_reco_ene); //RECO- NU ENERGY (QE FORMULA)
+  sbnana->SetBranchAddress("oaa", &oaa); //ANGLE BETWEEN INTERACTION VERTEX AND CENTER OF BNB BEAM (USING TRUTH)
+  sbnana->SetBranchAddress("ccnc", &ccnc); //TRUTH- CC/NC 
 
 //DEFINE CUTS
   TCut nu_mu("nu_type == 14"); //ONLY MUON-NEUTRINOS
@@ -90,7 +96,7 @@ void ana_prism() {
   TCut int_nonqe("(nu_mode != 0)&&(nu_mode != -1)"); //ALL INTERACTIONS THAT ARE NOT-QE AND NOT-UNKNOWN
   TCut nomec("nu_mode != 10"); //IN CASE ONE WANTS TO PLAY WITH THE FIT (REMOVING MEC SAMPLE)
  
-  //sbnd ACTIVE VOLUME CUT -- MODIFY AS PER FIDUCAIL VOLUME DEFINITION
+  //sbnd ACTIVE VOLUME CUT -- (MODIFY AS PER FIDUCAIL VOLUME DEFINITION)
   TCut x_active("(nu_x >= -200)&&(nu_x <= 200)"); 
   TCut y_active("(nu_y >= -200)&&(nu_y <= 200)"); 
   TCut z_active("(nu_z >= 0)&&(nu_z <= 500)"); 
@@ -134,7 +140,7 @@ cout << "----------------------------------------------------------------" << en
   cout << "Total size of histogram array = " << h.size() << endl;
   cout << "Histograms created for each off-axis interval" << endl;
 
-  int para = h.size(); //NO. OF HISTOGRAMS EQUALS THE NUMBER OF PARAMETERS FOR THE FIR (IMP VARIABLE SINCE IT WILL BE USED IN MOST LOOPS HENCEFORTH)
+  int para = h.size(); //NO. OF HISTOGRAMS EQUALS THE NUMBER OF PARAMETERS FOR THE FIT (IMP VARIABLE SINCE IT WILL BE USED IN MOST LOOPS HENCEFORTH)
 
 //FUNCTION CALL TO CREATE "FAKE" GAUSSIAN HISTOGRAM WITH THE GIVEN VALUES OF MEAN AND SIGMA
   h_gaus = monoHist(mean, sigma); 
@@ -163,9 +169,9 @@ cout << "----------------------------------------------------------------" << en
 
   arglist[0] = 500; //MAX NUMBER OF STEPS  
   arglist[1] = 1.;
-  gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg); //ALGORITHM USED FOR THE FIR (REFER TO TMINUIT FOR OTHER OPTIONS)
+  gMinuit->mnexcm("MIGRAD", arglist, 2, ierflg); //ALGORITHM USED FOR THE FIT (REFER TO TMINUIT FOR OTHER OPTIONS)
 
-//PRINTING OUT THE FIR RESULTS
+//PRINTING OUT THE FIT RESULTS
   Double_t amin,edm,errdef;
   Int_t nvpar,nparx,icstat;
   gMinuit->mnstat(amin,edm,errdef,nvpar,nparx,icstat);
@@ -196,15 +202,15 @@ cout << "\n----------------------------------------------------------------" << 
 //DEFINING HISTOGRAMS TO DRAW THE FIT RESULTS
   TH1D *h_fit = new TH1D("h_fit", "", 80, 0.0, 4.0); //TRUE ENERGY
   TH1D *reco_fit = new TH1D("reco_fit", "", 80, 0.0, 4.0); //RECO ENERGY
-  TH1D *nonqe_fit = new TH1D("nonqe_fit", "", 80, 0.0, 4.0); //NON-QE (MEC) RECO INTERACTIONS
+  TH1D *nonqe_fit = new TH1D("nonqe_fit", "", 80, 0.0, 4.0); //NON-QE RECO INTERACTIONS
   TH1D *qe_fit = new TH1D("qe_fit", "", 80, 0.0, 4.0); //QE RECO INTERACTIONS
 
-//SCALING AND SUMMING EACH OF THE HSITOGRAMS USING THE FIT PARAMETERS AS COEFFICIENTS
+//SCALING AND SUMMING EACH OF THE HISTOGRAM USING THE FIT PARAMETERS AS COEFFICIENTS
   for(Int_t i=0; i<para; i++) 
   {
     *h_fit = *h_fit + coeff[i]*(*h[i]); //TRUE ENERGY
     *reco_fit = *reco_fit + coeff[i]*(*reco[i]); //RECO ENERGY
-    *nonqe_fit = *nonqe_fit + coeff[i]*(*h_nonqe[i]); //NON-QE (MEC) RECO  
+    *nonqe_fit = *nonqe_fit + coeff[i]*(*h_nonqe[i]); //NON-QE RECO  
     *qe_fit = *qe_fit + coeff[i]*(*h_qe[i]); //QE RECO
   }
   cout << "Linear Combinations histograms made from the histogram arrays and the weights from the fit" << endl;
@@ -330,7 +336,7 @@ TH1D* monoHist(double mean, double sigma) {
   gaus->FillRandom("f_gaus", 20000);
 //  gaus->Draw();
 
-  return gaus; //return the oscillted icarus flux
+  return gaus; //RETURNS A GAUSSIAN SPECTRUM WITH DESIRED MEAN AND SIGMA
 
 }
 
