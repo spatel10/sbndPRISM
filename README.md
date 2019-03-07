@@ -3,7 +3,7 @@
 A study to inspect wheather the direct relationship between the neutrino beam off-axis angle and the neutrino energy can be taken advantage off to create pseudo-mono-chromatic energy fluxes. 
 
 Refer to sbncode (https://github.com/nuchicago/sbncode)  
-Based on the nuPRISM paper(arXiv:1412.3086).  
+Based on the nuPRISM paper(https://arxiv.org/abs/1412.3086).  
 
 
 ### Sample 
