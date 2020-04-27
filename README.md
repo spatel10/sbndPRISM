@@ -1,6 +1,6 @@
 # sbndPRISM
 
-A study to inspect wheather the direct relationship between the neutrino beam off-axis angle and the neutrino energy can be taken advantage off to create pseudo-mono-chromatic energy fluxes. 
+A study to inspect whether the direct (amd known) relationship between the neutrino beam off-axis angle and the neutrino energy can be taken advantage off to create pseudo-mono-chromatic energy fluxes. 
 
 Refer to sbncode - Production and analysis framework for SBN (https://github.com/nuchicago/sbncode)  
 Based on the nuPRISM paper (https://arxiv.org/abs/1412.3086).  
